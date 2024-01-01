@@ -1,0 +1,85 @@
+---
+- hosts: "{{ ansible_play_hosts }}"
+  remote_user: root
+
+  vars:
+    docker_service_name: docker
+
+  tasks:
+    - name: Install required packages
+      yum:
+        name:
+          - epel-release
+          - yum-utils
+          - device-mapper-persistent-data
+          - lvm2
+          - nc
+          - vim
+          - wget
+          - git
+          - iptables-services
+          - nmon
+        state: present
+
+    - name: Add Docker repository
+      yum_repository:
+        name: docker-ce-stable
+        description: Docker CE Stable - $basearch
+        baseurl: https://download.docker.com/linux/centos/7/$basearch/stable
+        gpgcheck: yes
+        gpgkey: https://download.docker.com/linux/centos/gpg
+        enabled: yes
+
+    - name: Install Docker
+      yum:
+        name: docker-ce
+        state: present
+
+    - name: Start Docker service
+      service:
+        name: "{{ docker_service_name }}"
+        state: started
+        enabled: yes
+
+    - name: Download Docker Compose binary
+      get_url:
+        url: https://github.com/docker/compose/releases/download/v2.17.2/docker-compose-linux-{{ ansible_architecture }}
+        dest: /usr/local/bin/docker-compose
+        mode: '0755'
+
+    - name: Create a symbolic link
+      file:
+        src: /usr/local/bin/docker-compose
+        dest: /usr/bin/docker-compose
+        state: link
+
+    - name: Set executable permissions
+      file:
+        path: /usr/local/bin/docker-compose
+        mode: '0755'
+
+    # - name: Start iptables service
+    #   service:
+    #     name: iptables
+    #     state: started
+    #     enabled: yes
+
+    # - name: Set net.ipv4.icmp_echo_ignore_all to 1
+    #   sysctl:
+    #     name: net.ipv4.icmp_echo_ignore_all
+    #     value: 1
+    #     state: present
+
+    - name: Update sshd_config
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?.*{{ item.regexp }}'
+        line: '{{ item.line }}'
+      with_items:
+        - { regexp: 'ClientAliveInterval', line: 'ClientAliveInterval 60' }
+        - { regexp: 'ClientAliveCountMax', line: 'ClientAliveCountMax 10' }
+
+    - name: Restart SSH service
+      systemd:
+        name: sshd
+        state: restarted
