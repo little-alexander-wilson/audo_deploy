@@ -1,0 +1,9 @@
+---
+- name: Test connectivity
+  hosts: "{{ ansible_play_hosts }}"
+  become: true
+  become_user: root
+  tasks:
+    - name: Ping test
+      ping:
+
